@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Route Finder - 3D Virtual Room &amp; Blind Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #080c16;
+            --bg-card: #101626;
+            --bg-card-sub: #172033;
+            --border-card: #1e293b;
+            --border-focus: #3b82f6;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --accent: #8b5cf6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: linear-gradient(180deg, #131c31 0%, #080c16 100%);
+            border-bottom: 1px solid var(--border-card);
+            padding: 18px 32px 16px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff 40%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p {
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-size: 0.88rem;
+        }
+
+        .container {
+            display: flex;
+            gap: 24px;
+            padding: 20px 32px;
+            max-width: 1680px;
+            margin: 0 auto;
+        }
+        .sidebar {
+            width: 360px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .main-area { flex: 1; min-width: 0; }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 22px;
+            border: 1px solid var(--border-card);
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+        }
+        .card h2 {
+            font-size: 0.98rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card h2::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 16px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        select, input[type="number"] {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            border: 1px solid #2d3748;
+            background: #0d1322;
+            color: var(--text-main);
+            margin-bottom: 14px;
+            outline: none;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        select:focus, input[type="number"]:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .algo-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .algo-btn {
+            padding: 9px 8px;
+            border-radius: 10px;
+            border: 1px solid #243049;
+            background: #111a2e;
+            color: var(--text-muted);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            font-size: 0.82rem;
+        }
+        .algo-btn:hover {
+            border-color: #3b82f6;
+            color: #e2e8f0;
+            background: #15223c;
+        }
+        .algo-btn.active {
+            border-color: #3b82f6;
+            color: #ffffff;
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+            box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+        }
+
+        .depth-limit-group { margin-bottom: 14px; display: none; }
+
+        .speed-control { margin-bottom: 16px; }
+        .speed-control input[type="range"] {
+            width: 100%;
+            accent-color: var(--primary);
+            margin-bottom: 4px;
+            background: transparent;
+            cursor: pointer;
+        }
+        .speed-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: var(--text-dim);
+        }
+
+        .search-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 12px;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+            font-family: inherit;
+        }
+        .search-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+        }
+        .search-btn:active { transform: translateY(0); }
+        .search-btn.running {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+        }
+
+        .status-bar {
+            background: #0d1322;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            border: 1px solid #243049;
+            display: none;
+        }
+        .status-bar .status-text {
+            color: #60a5fa;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .status-bar .status-detail {
+            color: var(--text-dim);
+            font-size: 0.76rem;
+            margin-top: 3px;
+        }
+
+        .result-item {
+            background: #0d1322;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            border-left: 3px solid #3b82f6;
+            border-top: 1px solid #1a2438;
+            border-right: 1px solid #1a2438;
+            border-bottom: 1px solid #1a2438;
+        }
+        .result-item .label {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+        .result-item .value {
+            font-size: 0.95rem;
+            color: #f1f5f9;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .path-nodes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+        .path-node {
+            background: #172846;
+            color: #93c5fd;
+            border: 1px solid #2563eb;
+            padding: 3px 10px;
+            border-radius: 16px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            opacity: 0;
+            animation: fadeInNode 0.3s forwards;
+        }
+        .path-arrow { color: #64748b; font-size: 0.85rem; opacity: 0; animation: fadeInNode 0.3s forwards; }
+
+        @keyframes fadeInNode {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .visited-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+        .visited-node {
+            background: #1e1b4b;
+            color: #c7d2fe;
+            border: 1px solid #3730a3;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.74rem;
+        }
+        .visited-node .step { color: #818cf8; font-weight: 700; margin-right: 3px; }
+
+        /* Canvas & 3D Virtual Room Viewport */
+        .canvas-container {
+            background: #050811;
+            border-radius: 16px;
+            border: 1px solid var(--border-card);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 4px 30px -2px rgba(0, 0, 0, 0.7);
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 960 / 680;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        /* 3D Floating HUD Controls */
+        .hud-controls {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 10;
+        }
+        .hud-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            border: 1px solid #2a3754;
+            background: rgba(13, 19, 34, 0.85);
+            backdrop-filter: blur(8px);
+            color: #e2e8f0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .hud-btn:hover {
+            border-color: #3b82f6;
+            color: #60a5fa;
+            background: rgba(23, 32, 51, 0.95);
+            transform: scale(1.05);
+        }
+        .hud-btn.active-mode {
+            border-color: #10b981;
+            color: #34d399;
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .hud-badge {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(13, 19, 34, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid #2a3754;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            color: var(--text-muted);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .hud-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulseDot 2s infinite;
+        }
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        .hud-hint {
+            position: absolute;
+            bottom: 48px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 14, 26, 0.88);
+            backdrop-filter: blur(6px);
+            border: 1px solid #1e293b;
+            padding: 5px 16px;
+            border-radius: 20px;
+            font-size: 0.73rem;
+            color: var(--text-muted);
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .hud-hint b { color: #60a5fa; font-weight: 600; }
+
+        .legend {
+            display: flex;
+            gap: 18px;
+            padding: 12px 20px;
+            background: #080c16;
+            border-top: 1px solid var(--border-card);
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .legend-item { display: flex; align-items: center; gap: 7px; }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 1024px) {
+            .container { flex-direction: column; padding: 16px; }
+            .sidebar { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Campus Route Finder</h1>
+        <p>3D Virtual Room Navigation &amp; Blind Search Visualizer (BFS, DFS, UCS, DLS, IDS)</p>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="card">
+                <h2>Konfigurasi Pencarian</h2>
+                <label>Gedung Asal (Start)</label>
+                <select id="start">
+                    {% for loc in locations %}
+                    <option value="{{ loc }}">{{ loc }}</option>
+                    {% endfor %}
+                </select>
+
+                <label>Gedung Tujuan (Goal)</label>
+                <select id="goal">
+                    {% for loc in locations %}
+                    <option value="{{ loc }}" {% if loc == 'Auditorium' %}selected{% endif %}>{{ loc }}</option>
+                    {% endfor %}
+                </select>
+
+                <label>Metode Algoritma</label>
+                <div class="algo-buttons">
+                    <div class="algo-btn active" data-algo="bfs" onclick="selectAlgo(this)">BFS</div>
+                    <div class="algo-btn" data-algo="dfs" onclick="selectAlgo(this)">DFS</div>
+                    <div class="algo-btn" data-algo="ucs" onclick="selectAlgo(this)">UCS</div>
+                    <div class="algo-btn" data-algo="dls" onclick="selectAlgo(this)">DLS</div>
+                    <div class="algo-btn" data-algo="ids" onclick="selectAlgo(this)">IDS</div>
+                </div>
+
+                <div class="depth-limit-group" id="depthLimitGroup">
+                    <label>Depth Limit (DLS)</label>
+                    <input type="number" id="depthLimit" min="1" max="20" value="3">
+                </div>
+
+                <label>Kecepatan Animasi</label>
+                <div class="speed-control">
+                    <input type="range" id="speed" min="1" max="5" value="3" step="1">
+                    <div class="speed-labels"><span>Lambat</span><span>Sedang</span><span>Cepat</span></div>
+                </div>
+
+                <div class="status-bar" id="statusBar">
+                    <div class="status-text" id="statusText"></div>
+                    <div class="status-detail" id="statusDetail"></div>
+                </div>
+
+                <button class="search-btn" id="searchBtn" onclick="runSearch()">Cari Rute</button>
+            </div>
+
+            <div class="card" id="results-card" style="display:none;">
+                <h2>Hasil Penelusuran</h2>
+                <div id="results"></div>
+            </div>
+        </div>
+
+        <div class="main-area">
+            <div class="canvas-container" id="containerViewport">
+                <!-- 3D Virtual Room Floating Controls -->
+                <div class="hud-badge">
+                    <div class="hud-dot"></div>
+                    <span>3D Virtual Room &bull; <span id="hudZoomText">100%</span> &bull; <span id="hudPitchText">3D Tilt</span></span>
+                </div>
+
+                <div class="hud-controls">
+                    <button class="hud-btn" title="Zoom In (+)" onclick="zoomView(1.2)">+</button>
+                    <button class="hud-btn" title="Zoom Out (-)" onclick="zoomView(0.8)">&minus;</button>
+                    <button class="hud-btn" id="btnToggle3D" title="Toggle Mode 3D / 2D Flat" onclick="toggle3DMode()">3D</button>
+                    <button class="hud-btn" title="Reset Camera POV (0)" onclick="resetPOV()" style="font-size:0.85rem;">&#x21bb;</button>
+                </div>
+
+                <div class="hud-hint">
+                    <span><b>Klik Kiri + Tarik:</b> Geser POV (Pan)</span>
+                    <span>&bull;</span>
+                    <span><b>Shift + Tarik / Klik Kanan:</b> Rotasi Orbit 3D</span>
+                    <span>&bull;</span>
+                    <span><b>Scroll:</b> Zoom</span>
+                </div>
+
+                <canvas id="graphCanvas" width="960" height="680"></canvas>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#475569;"></div> Belum Dikunjungi</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#06b6d4; box-shadow: 0 0 6px #06b6d4;"></div> Sedang Dieksplorasi</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> Telah Dikunjungi</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#10b981; box-shadow: 0 0 6px #10b981;"></div> Jalur Solusi</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> Start (Asal)</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div> Goal (Tujuan)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const positions = {{ positions | tojson }};
+        const edges = {{ edges | tojson }};
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 3D Camera & POV Orientation State
+        const camera3D = {
+            panX: 0,
+            panY: 0,
+            targetPanX: 0,
+            targetPanY: 0,
+            scale: 0.95,
+            targetScale: 0.95,
+            pitch: 0.88,          // Vertical tilt angle (0 to PI/2)
+            targetPitch: 0.88,
+            yaw: 0.0,             // Horizontal rotation angle
+            targetYaw: 0.0,
+            isDragging: false,
+            isRotating: false,
+            lastMouseX: 0,
+            lastMouseY: 0,
+            mode3D: true
+        };
+
+        // Graph center coordinate reference
+        let graphCenter = { x: 480, y: 380 };
+
+        function computeGraphCenter() {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            Object.values(positions).forEach(p => {
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            });
+            graphCenter.x = (minX + maxX) / 2;
+            graphCenter.y = (minY + maxY) / 2;
+        }
+        computeGraphCenter();
+
+        function resetPOV() {
+            camera3D.targetPanX = canvas.width / 2;
+            camera3D.targetPanY = canvas.height / 2 + 30;
+            camera3D.targetScale = 0.92;
+            if (camera3D.mode3D) {
+                camera3D.targetPitch = 0.88;
+                camera3D.targetYaw = 0.0;
+            } else {
+                camera3D.targetPitch = 0.0;
+                camera3D.targetYaw = 0.0;
+            }
+            updateHudInfo();
+        }
+
+        function toggle3DMode() {
+            camera3D.mode3D = !camera3D.mode3D;
+            const btn = document.getElementById('btnToggle3D');
+            if (camera3D.mode3D) {
+                btn.classList.add('active-mode');
+                btn.textContent = '3D';
+                camera3D.targetPitch = 0.88;
+                camera3D.targetYaw = 0.0;
+            } else {
+                btn.classList.remove('active-mode');
+                btn.textContent = '2D';
+                camera3D.targetPitch = 0.0;
+                camera3D.targetYaw = 0.0;
+            }
+            updateHudInfo();
+        }
+
+        function updateHudInfo() {
+            const zText = document.getElementById('hudZoomText');
+            if (zText) zText.textContent = Math.round(camera3D.targetScale * 100) + '%';
+            const pText = document.getElementById('hudPitchText');
+            if (pText) pText.textContent = camera3D.mode3D ? `${Math.round((camera3D.targetPitch / (Math.PI/2)) * 90)}° Tilt` : '2D Top';
+        }
+
+        function zoomView(factor) {
+            camera3D.targetScale = Math.min(Math.max(camera3D.targetScale * factor, 0.4), 2.5);
+            updateHudInfo();
+        }
+
+        // Mouse Controls: Left Drag = Pan, Shift+Left Drag or Right Drag = 3D Orbit Rotate
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && !e.shiftKey) {
+                camera3D.isDragging = true;
+                camera3D.lastMouseX = e.clientX;
+                camera3D.lastMouseY = e.clientY;
+            } else if (e.button === 2 || (e.button === 0 && e.shiftKey)) {
+                camera3D.isRotating = true;
+                camera3D.lastMouseX = e.clientX;
+                camera3D.lastMouseY = e.clientY;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (camera3D.isDragging) {
+                const dx = e.clientX - camera3D.lastMouseX;
+                const dy = e.clientY - camera3D.lastMouseY;
+                camera3D.targetPanX += dx;
+                camera3D.targetPanY += dy;
+                camera3D.lastMouseX = e.clientX;
+                camera3D.lastMouseY = e.clientY;
+            } else if (camera3D.isRotating) {
+                const dx = e.clientX - camera3D.lastMouseX;
+                const dy = e.clientY - camera3D.lastMouseY;
+                camera3D.targetYaw += dx * 0.006;
+                camera3D.targetPitch = Math.min(Math.max(camera3D.targetPitch + dy * 0.006, 0.1), 1.35);
+                camera3D.lastMouseX = e.clientX;
+                camera3D.lastMouseY = e.clientY;
+                updateHudInfo();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            camera3D.isDragging = false;
+            camera3D.isRotating = false;
+        });
+
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Wheel Zoom toward Center
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.12 : 0.89;
+            camera3D.targetScale = Math.min(Math.max(camera3D.targetScale * factor, 0.4), 2.5);
+            updateHudInfo();
+        }, { passive: false });
+
+        resetPOV();
+
+        // 3D Isometric Projection Transformation
+        // Maps world coordinates (wx, wy, wz) -> Screen coordinates (sx, sy, depth)
+        function project3D(wx, wy, wz = 0) {
+            // Translate origin to graph center
+            const relX = wx - graphCenter.x;
+            const relY = wy - graphCenter.y;
+
+            // Yaw Rotation (around Z/Vertical axis)
+            const cosYaw = Math.cos(camera3D.yaw);
+            const sinYaw = Math.sin(camera3D.yaw);
+            const rotX = relX * cosYaw - relY * sinYaw;
+            const rotY = relX * sinYaw + relY * cosYaw;
+
+            // Pitch Tilt (Isometric / Perspective compression)
+            const cosPitch = Math.cos(camera3D.pitch);
+            const sinPitch = Math.sin(camera3D.pitch);
+
+            // Screen projection:
+            const projX = rotX * camera3D.scale + camera3D.panX;
+            // Floor depth compresses by cosPitch, while vertical height wz projects upward
+            const projY = (rotY * cosPitch - wz) * camera3D.scale + camera3D.panY;
+            const depth = rotY * sinPitch;
+
+            return { x: projX, y: projY, depth: depth };
+        }
+
+        let currentResult = null;
+        let animationRunning = false;
+        let cancelAnimation = false;
+
+        const ripples = [];
+        const particles = [];
+        let globalTime = 0;
+        let rafId = null;
+
+        const nodeAnimState = {};
+        Object.keys(positions).forEach(name => {
+            nodeAnimState[name] = { scale: 1, targetScale: 1, glow: 0, targetGlow: 0, heightZ: 40 };
+        });
+
+        let activeVisited = new Set();
+        let activeExploredEdges = [];
+        let activePathEdges = new Set();
+        let activePathNodes = new Set();
+        let currentExploring = null;
+        let startNode = null;
+        let goalNode = null;
+        let movingDots = [];
+
+        function selectAlgo(el) {
+            document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            const algo = el.dataset.algo;
+            document.getElementById('depthLimitGroup').style.display = algo === 'dls' ? 'block' : 'none';
+        }
+
+        function getSpeedMs() {
+            const v = parseInt(document.getElementById('speed').value);
+            return [1100, 750, 480, 280, 140][v - 1];
+        }
+
+        function lerp(a, b, t) { return a + (b - a) * t; }
+
+        function addRipple(wx, wy, color) {
+            ripples.push({ wx, wy, radius: 0, maxRadius: 52, alpha: 0.75, color });
+        }
+
+        function addParticles(wx, wy, wz, color, count) {
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+                const speed = 1.2 + Math.random() * 2.0;
+                particles.push({
+                    wx, wy, wz,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    vz: 1.0 + Math.random() * 2.5,
+                    life: 1, decay: 0.02 + Math.random() * 0.015, radius: 2.2 + Math.random() * 1.5, color
+                });
+            }
+        }
+
+        function addMovingDot(fromNode, toNode, color) {
+            const from = positions[fromNode];
+            const to = positions[toNode];
+            movingDots.push({
+                fromName: fromNode, toName: toNode,
+                progress: 0, speed: 0.035, color, trail: []
+            });
+        }
+
+        function updateAnimations() {
+            globalTime += 0.025;
+
+            // Smooth Camera Interpolation
+            camera3D.panX = lerp(camera3D.panX, camera3D.targetPanX, 0.15);
+            camera3D.panY = lerp(camera3D.panY, camera3D.targetPanY, 0.15);
+            camera3D.scale = lerp(camera3D.scale, camera3D.targetScale, 0.15);
+            camera3D.pitch = lerp(camera3D.pitch, camera3D.targetPitch, 0.15);
+            camera3D.yaw = lerp(camera3D.yaw, camera3D.targetYaw, 0.15);
+
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                const r = ripples[i];
+                r.radius += 1.6;
+                r.alpha -= 0.018;
+                if (r.alpha <= 0) ripples.splice(i, 1);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.wx += p.vx;
+                p.wy += p.vy;
+                p.wz += p.vz;
+                p.vz -= 0.06; // Gravity
+                p.vx *= 0.96;
+                p.vy *= 0.96;
+                p.life -= p.decay;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = movingDots.length - 1; i >= 0; i--) {
+                const d = movingDots[i];
+                d.progress += d.speed;
+                const from = positions[d.fromName];
+                const to = positions[d.toName];
+                const curWx = lerp(from.x, to.x, Math.min(d.progress, 1));
+                const curWy = lerp(from.y, to.y, Math.min(d.progress, 1));
+                // Slight arch in 3D height during traversal
+                const curWz = 40 + Math.sin(Math.min(d.progress, 1) * Math.PI) * 15;
+                
+                d.trail.push({ wx: curWx, wy: curWy, wz: curWz, alpha: 0.9 });
+                if (d.trail.length > 12) d.trail.shift();
+                d.trail.forEach(t => t.alpha -= 0.07);
+                if (d.progress >= 1) movingDots.splice(i, 1);
+            }
+
+            Object.values(nodeAnimState).forEach(s => {
+                s.scale = lerp(s.scale, s.targetScale, 0.12);
+                s.glow = lerp(s.glow, s.targetGlow, 0.1);
+            });
+        }
+
+        // Draw 3D Isometric Grid Floor
+        function draw3DFloor() {
+            ctx.fillStyle = '#060a14';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 3D Isometric Floor Mesh
+            const gridSize = 45;
+            const extentX = 650;
+            const extentY = 550;
+
+            ctx.strokeStyle = 'rgba(30, 48, 80, 0.25)';
+            ctx.lineWidth = 1;
+
+            // X-direction floor lines
+            for (let y = graphCenter.y - extentY; y <= graphCenter.y + extentY; y += gridSize) {
+                const p1 = project3D(graphCenter.x - extentX, y, 0);
+                const p2 = project3D(graphCenter.x + extentX, y, 0);
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            }
+
+            // Y-direction floor lines
+            for (let x = graphCenter.x - extentX; x <= graphCenter.x + extentX; x += gridSize) {
+                const p1 = project3D(x, graphCenter.y - extentY, 0);
+                const p2 = project3D(x, graphCenter.y + extentY, 0);
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            }
+
+            // Central floor compass / room perimeter
+            const c1 = project3D(graphCenter.x - extentX, graphCenter.y - extentY, 0);
+            const c2 = project3D(graphCenter.x + extentX, graphCenter.y - extentY, 0);
+            const c3 = project3D(graphCenter.x + extentX, graphCenter.y + extentY, 0);
+            const c4 = project3D(graphCenter.x - extentX, graphCenter.y + extentY, 0);
+
+            ctx.beginPath();
+            ctx.moveTo(c1.x, c1.y);
+            ctx.lineTo(c2.x, c2.y);
+            ctx.lineTo(c3.x, c3.y);
+            ctx.lineTo(c4.x, c4.y);
+            ctx.closePath();
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Atmospheric Vignette
+            const grad = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 120,
+                canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 1.05
+            );
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0.65)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawFrame() {
+            draw3DFloor();
+
+            const exploredEdgeSet = new Set();
+            activeExploredEdges.forEach(e => {
+                exploredEdgeSet.add([e.from, e.to].sort().join('|'));
+            });
+
+            // 1. Draw 3D Edges and Ground Shadows
+            edges.forEach(e => {
+                const from = positions[e.from];
+                const to = positions[e.to];
+                const key = [e.from, e.to].sort().join('|');
+                const isPath = activePathEdges.has(key);
+                const isExplored = exploredEdgeSet.has(key);
+
+                // Floor Shadow Line (z = 0)
+                const sFrom = project3D(from.x, from.y, 0);
+                const sTo = project3D(to.x, to.y, 0);
+                ctx.beginPath();
+                ctx.moveTo(sFrom.x, sFrom.y);
+                ctx.lineTo(sTo.x, sTo.y);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+                ctx.lineWidth = 2.5 * camera3D.scale;
+                ctx.stroke();
+
+                // Elevated 3D Edge Line (z = 40)
+                const elevatedZ = 38;
+                const pFrom = project3D(from.x, from.y, elevatedZ);
+                const pTo = project3D(to.x, to.y, elevatedZ);
+
+                ctx.beginPath();
+                ctx.moveTo(pFrom.x, pFrom.y);
+                ctx.lineTo(pTo.x, pTo.y);
+
+                if (isPath) {
+                    ctx.strokeStyle = 'rgba(16, 185, 129, 0.35)';
+                    ctx.lineWidth = 9 * camera3D.scale;
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(pFrom.x, pFrom.y);
+                    ctx.lineTo(pTo.x, pTo.y);
+                    ctx.strokeStyle = '#10b981';
+                    ctx.lineWidth = 3.8 * camera3D.scale;
+                    ctx.stroke();
+                } else if (isExplored) {
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 2.4 * camera3D.scale;
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = '#22324f';
+                    ctx.lineWidth = 1.5 * camera3D.scale;
+                    ctx.stroke();
+                }
+
+                // 3D Weight Badge at Midpoint
+                const midWx = (from.x + to.x) / 2;
+                const midWy = (from.y + to.y) / 2;
+                const pMid = project3D(midWx, midWy, elevatedZ + 6);
+
+                const badgeW = 20 * camera3D.scale;
+                const badgeH = 14 * camera3D.scale;
+                ctx.fillStyle = isPath ? '#064e3b' : (isExplored ? '#451a03' : '#101726');
+                ctx.strokeStyle = isPath ? '#10b981' : (isExplored ? '#b45309' : '#273859');
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                ctx.roundRect ? ctx.roundRect(pMid.x - badgeW/2, pMid.y - badgeH/2, badgeW, badgeH, 4) : ctx.rect(pMid.x - badgeW/2, pMid.y - badgeH/2, badgeW, badgeH);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = isPath ? '#6ee7b7' : (isExplored ? '#fde68a' : '#818cf8');
+                ctx.font = `600 ${Math.max(8.5 * camera3D.scale, 7)}px "Plus Jakarta Sans", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(e.weight, pMid.x, pMid.y);
+            });
+
+            // 2. 3D Ground Ripples
+            ripples.forEach(r => {
+                const rp = project3D(r.wx, r.wy, 0);
+                const rx = r.radius * camera3D.scale;
+                const ry = r.radius * Math.cos(camera3D.pitch) * camera3D.scale;
+                ctx.beginPath();
+                ctx.ellipse(rp.x, rp.y, rx, Math.max(ry, 1), 0, 0, Math.PI * 2);
+                ctx.strokeStyle = r.color.replace(')', `, ${r.alpha})`).replace('rgb', 'rgba');
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            });
+
+            // 3. 3D Floating Particles
+            particles.forEach(p => {
+                const pp = project3D(p.wx, p.wy, p.wz);
+                ctx.beginPath();
+                ctx.arc(pp.x, pp.y, p.radius * p.life * camera3D.scale, 0, Math.PI * 2);
+                ctx.fillStyle = p.color.replace(')', `, ${p.life * 0.85})`).replace('rgb', 'rgba');
+                ctx.fill();
+            });
+
+            // 4. 3D Moving Dots with Trajectory
+            movingDots.forEach(d => {
+                d.trail.forEach(t => {
+                    if (t.alpha > 0) {
+                        const tp = project3D(t.wx, t.wy, t.wz);
+                        ctx.beginPath();
+                        ctx.arc(tp.x, tp.y, 2.6 * t.alpha * camera3D.scale, 0, Math.PI * 2);
+                        ctx.fillStyle = d.color.replace(')', `, ${t.alpha * 0.4})`).replace('rgb', 'rgba');
+                        ctx.fill();
+                    }
+                });
+                if (d.trail.length > 0) {
+                    const latest = d.trail[d.trail.length - 1];
+                    const dp = project3D(latest.wx, latest.wy, latest.wz);
+                    ctx.beginPath();
+                    ctx.arc(dp.x, dp.y, 4.8 * camera3D.scale, 0, Math.PI * 2);
+                    ctx.fillStyle = d.color;
+                    ctx.shadowColor = d.color;
+                    ctx.shadowBlur = 10;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            });
+
+            // 5. Render 3D Pillars & Floating Nodes (Sorted by 3D Depth)
+            const nodeList = Object.entries(positions).map(([name, pos]) => {
+                const elevatedZ = 38;
+                const groundP = project3D(pos.x, pos.y, 0);
+                const headP = project3D(pos.x, pos.y, elevatedZ);
+                return { name, pos, groundP, headP, depth: groundP.depth };
+            });
+
+            // Depth sorting (painter's algorithm)
+            nodeList.sort((a, b) => a.depth - b.depth);
+
+            nodeList.forEach(item => {
+                const { name, pos, groundP, headP } = item;
+                const state = nodeAnimState[name];
+
+                let baseColor = '#1e293b';
+                let borderColor = '#3b4c6b';
+                let pillarColor = 'rgba(40, 60, 95, 0.4)';
+                let glowColor = null;
+                let radius = 17 * camera3D.scale;
+
+                const isStart = (name === startNode);
+                const isGoal = (name === goalNode);
+                const isPath = activePathNodes.has(name);
+                const isExploring = (name === currentExploring);
+                const isVisited = activeVisited.has(name);
+
+                if (isStart) {
+                    baseColor = '#ef4444';
+                    borderColor = '#fca5a5';
+                    pillarColor = 'rgba(239, 68, 68, 0.5)';
+                    glowColor = 'rgba(239, 68, 68, 0.45)';
+                    radius = 21 * camera3D.scale;
+                } else if (isGoal) {
+                    baseColor = '#8b5cf6';
+                    borderColor = '#c4b5fd';
+                    pillarColor = 'rgba(139, 92, 246, 0.5)';
+                    glowColor = 'rgba(139, 92, 246, 0.45)';
+                    radius = 21 * camera3D.scale;
+                } else if (isPath) {
+                    baseColor = '#10b981';
+                    borderColor = '#6ee7b7';
+                    pillarColor = 'rgba(16, 185, 129, 0.5)';
+                    glowColor = 'rgba(16, 185, 129, 0.45)';
+                    radius = 19 * camera3D.scale;
+                } else if (isExploring) {
+                    baseColor = '#06b6d4';
+                    borderColor = '#67e8f9';
+                    pillarColor = 'rgba(6, 182, 212, 0.6)';
+                    glowColor = 'rgba(6, 182, 212, 0.55)';
+                    radius = 21 * camera3D.scale;
+                } else if (isVisited) {
+                    baseColor = '#d97706';
+                    borderColor = '#fbbf24';
+                    pillarColor = 'rgba(217, 119, 6, 0.35)';
+                    glowColor = 'rgba(217, 119, 6, 0.25)';
+                    radius = 17 * camera3D.scale;
+                }
+
+                const effectiveRadius = radius * state.scale;
+
+                // --- 3D Ground Shadow & Base Pedestal ---
+                ctx.beginPath();
+                ctx.ellipse(groundP.x, groundP.y, effectiveRadius * 1.1, effectiveRadius * 0.45, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fill();
+
+                // --- 3D Vertical Pillar Column (Light Beam / Stalk) ---
+                if (camera3D.pitch > 0.05) {
+                    const pillarGrad = ctx.createLinearGradient(groundP.x, groundP.y, headP.x, headP.y);
+                    pillarGrad.addColorStop(0, 'rgba(0,0,0,0.2)');
+                    pillarGrad.addColorStop(1, pillarColor);
+
+                    ctx.beginPath();
+                    ctx.moveTo(groundP.x - effectiveRadius * 0.4, groundP.y);
+                    ctx.lineTo(groundP.x + effectiveRadius * 0.4, groundP.y);
+                    ctx.lineTo(headP.x + effectiveRadius * 0.3, headP.y);
+                    ctx.lineTo(headP.x - effectiveRadius * 0.3, headP.y);
+                    ctx.closePath();
+                    ctx.fillStyle = pillarGrad;
+                    ctx.fill();
+
+                    // Central spine wire
+                    ctx.beginPath();
+                    ctx.moveTo(groundP.x, groundP.y);
+                    ctx.lineTo(headP.x, headP.y);
+                    ctx.strokeStyle = pillarColor;
+                    ctx.lineWidth = 1.2;
+                    ctx.stroke();
+                }
+
+                // --- 3D Floating Node Head Sphere ---
+                if (glowColor) {
+                    ctx.beginPath();
+                    ctx.arc(headP.x, headP.y, effectiveRadius + 7 * camera3D.scale, 0, Math.PI * 2);
+                    ctx.fillStyle = glowColor;
+                    ctx.fill();
+                }
+
+                // 3D Sphere Highlight Shading
+                const sphereGrad = ctx.createRadialGradient(
+                    headP.x - effectiveRadius * 0.3, headP.y - effectiveRadius * 0.3, effectiveRadius * 0.1,
+                    headP.x, headP.y, effectiveRadius
+                );
+                sphereGrad.addColorStop(0, '#ffffff');
+                sphereGrad.addColorStop(0.3, baseColor);
+                sphereGrad.addColorStop(1, '#080d1a');
+
+                ctx.beginPath();
+                ctx.arc(headP.x, headP.y, effectiveRadius, 0, Math.PI * 2);
+                ctx.fillStyle = sphereGrad;
+                ctx.fill();
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = 2.0;
+                ctx.stroke();
+
+                // Exploring Pulse Ring
+                if (isExploring) {
+                    const pulseR = effectiveRadius + (7 + 3 * Math.sin(globalTime * 5)) * camera3D.scale;
+                    ctx.beginPath();
+                    ctx.arc(headP.x, headP.y, pulseR, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(6, 182, 212, ${0.45 + 0.3 * Math.sin(globalTime * 5)})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Step index counter badge for visited nodes
+                if (isVisited && !isStart && !isGoal) {
+                    const arr = [...activeVisited];
+                    const idx = arr.indexOf(name);
+                    if (idx >= 0) {
+                        const badgeX = headP.x + effectiveRadius - 2;
+                        const badgeY = headP.y - effectiveRadius + 2;
+                        ctx.beginPath();
+                        ctx.arc(badgeX, badgeY, 7.5 * camera3D.scale, 0, Math.PI * 2);
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fill();
+                        ctx.strokeStyle = '#fbbf24';
+                        ctx.lineWidth = 1.2;
+                        ctx.stroke();
+
+                        ctx.fillStyle = '#fbbf24';
+                        ctx.font = `700 ${Math.max(8 * camera3D.scale, 6.5)}px "Plus Jakarta Sans", sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(idx + 1, badgeX, badgeY);
+                    }
+                }
+
+                // 3D Floating Pill Label
+                draw3DNodeLabel(name, headP.x, headP.y + effectiveRadius + 14 * camera3D.scale, isPath, isStart, isGoal);
+            });
+        }
+
+        function draw3DNodeLabel(text, x, y, isPath, isStart, isGoal) {
+            const fontSize = Math.max(10.5 * camera3D.scale, 8.5);
+            ctx.font = `600 ${fontSize}px "Plus Jakarta Sans", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const metrics = ctx.measureText(text);
+            const w = metrics.width + 12 * camera3D.scale;
+            const h = 18 * camera3D.scale;
+
+            let bgColor = 'rgba(10, 16, 28, 0.88)';
+            let textColor = '#cbd5e1';
+            let strokeColor = '#243247';
+
+            if (isStart) {
+                bgColor = 'rgba(239, 68, 68, 0.2)';
+                textColor = '#fca5a5';
+                strokeColor = '#ef4444';
+            } else if (isGoal) {
+                bgColor = 'rgba(139, 92, 246, 0.2)';
+                textColor = '#c4b5fd';
+                strokeColor = '#8b5cf6';
+            } else if (isPath) {
+                bgColor = 'rgba(16, 185, 129, 0.2)';
+                textColor = '#6ee7b7';
+                strokeColor = '#10b981';
+            }
+
+            ctx.fillStyle = bgColor;
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            ctx.roundRect ? ctx.roundRect(x - w/2, y - h/2, w, h, 6 * camera3D.scale) : ctx.rect(x - w/2, y - h/2, w, h);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = textColor;
+            ctx.fillText(text, x, y);
+        }
+
+        function renderLoop() {
+            updateAnimations();
+            drawFrame();
+            rafId = requestAnimationFrame(renderLoop);
+        }
+
+        renderLoop();
+
+        function resetState() {
+            activeVisited = new Set();
+            activeExploredEdges = [];
+            activePathEdges = new Set();
+            activePathNodes = new Set();
+            currentExploring = null;
+            startNode = null;
+            goalNode = null;
+            movingDots = [];
+            ripples.length = 0;
+            particles.length = 0;
+            Object.values(nodeAnimState).forEach(s => {
+                s.scale = 1; s.targetScale = 1; s.glow = 0; s.targetGlow = 0;
+            });
+            document.getElementById('results-card').style.display = 'none';
+            document.getElementById('statusBar').style.display = 'none';
+        }
+
+        function setStatus(text, detail) {
+            const bar = document.getElementById('statusBar');
+            bar.style.display = 'block';
+            document.getElementById('statusText').textContent = text;
+            document.getElementById('statusDetail').textContent = detail || '';
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function runSearch() {
+            if (animationRunning) { cancelAnimation = true; return; }
+
+            const startVal = document.getElementById('start').value;
+            const goalVal = document.getElementById('goal').value;
+            const algorithm = document.querySelector('.algo-btn.active').dataset.algo;
+
+            if (startVal === goalVal) {
+                alert('Gedung asal dan gedung tujuan harus berbeda!');
+                return;
+            }
+
+            resetState();
+            animationRunning = true;
+            cancelAnimation = false;
+            const btn = document.getElementById('searchBtn');
+            btn.textContent = 'Batalkan';
+            btn.classList.add('running');
+
+            const payload = { start: startVal, goal: goalVal, algorithm };
+            if (algorithm === 'dls') {
+                payload.depth_limit = parseInt(document.getElementById('depthLimit').value) || 3;
+            }
+
+            const res = await fetch('/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.error) {
+                alert(data.error);
+                animationRunning = false;
+                btn.textContent = 'Cari Rute';
+                btn.classList.remove('running');
+                return;
+            }
+
+            currentResult = data;
+            startNode = startVal;
+            goalNode = goalVal;
+
+            const speed = getSpeedMs();
+            const visited = data.visited_order;
+            const exploredEdges = data.explored_edges;
+
+            const algoNames = {
+                'BFS': 'Breadth-First Search',
+                'DFS': 'Depth-First Search',
+                'UCS': 'Uniform Cost Search',
+                'DLS': 'Depth-Limited Search',
+                'IDS': 'Iterative Deepening Search'
+            };
+            const algoLabel = algoNames[data.algorithm] || data.algorithm;
+            setStatus(`Memulai ${algoLabel}...`, `Rute: "${startVal}" → "${goalVal}"`);
+
+            nodeAnimState[startVal].targetScale = 1.25;
+            addRipple(positions[startVal].x, positions[startVal].y, 'rgb(239, 68, 68)');
+            addParticles(positions[startVal].x, positions[startVal].y, 40, 'rgb(239, 68, 68)', 12);
+            await sleep(speed * 0.9);
+
+            let edgeIdx = 0;
+
+            for (let i = 0; i < visited.length; i++) {
+                if (cancelAnimation) break;
+
+                const node = visited[i];
+                currentExploring = node;
+                nodeAnimState[node].targetScale = 1.35;
+
+                setStatus(`Mengeksplorasi: ${node}`, `Langkah ${i + 1} dari ${visited.length} node`);
+                addRipple(positions[node].x, positions[node].y, 'rgb(6, 182, 212)');
+
+                await sleep(speed * 0.4);
+
+                while (edgeIdx < exploredEdges.length && exploredEdges[edgeIdx].from === node) {
+                    if (cancelAnimation) break;
+                    const edge = exploredEdges[edgeIdx];
+                    addMovingDot(edge.from, edge.to, 'rgb(245, 158, 11)');
+                    activeExploredEdges.push(edge);
+                    await sleep(speed * 0.22);
+                    edgeIdx++;
+                }
+
+                activeVisited.add(node);
+                nodeAnimState[node].targetScale = 1;
+
+                await sleep(speed * 0.3);
+                currentExploring = null;
+            }
+
+            if (!cancelAnimation && data.path) {
+                setStatus('Solusi Ditemukan! Menggambar lintasan rute...', '');
+                await sleep(speed * 0.5);
+
+                for (let i = 0; i < data.path.length; i++) {
+                    if (cancelAnimation) break;
+                    const node = data.path[i];
+                    activePathNodes.add(node);
+                    nodeAnimState[node].targetScale = 1.25;
+                    addParticles(positions[node].x, positions[node].y, 40, 'rgb(16, 185, 129)', 10);
+                    addRipple(positions[node].x, positions[node].y, 'rgb(16, 185, 129)');
+
+                    if (i > 0) {
+                        const prev = data.path[i - 1];
+                        const key = [prev, node].sort().join('|');
+                        activePathEdges.add(key);
+                        addMovingDot(prev, node, 'rgb(16, 185, 129)');
+                    }
+
+                    await sleep(speed * 0.5);
+                    nodeAnimState[node].targetScale = 1.05;
+                }
+
+                setStatus('Pencarian Selesai!', `${data.path.length - 1} hop, total jarak: ${data.distance} unit`);
+                addParticles(positions[goalVal].x, positions[goalVal].y, 40, 'rgb(139, 92, 246)', 18);
+                await sleep(300);
+                showResults(data);
+            } else if (!cancelAnimation) {
+                if (data.algorithm === 'DLS' && data.cutoff) {
+                    setStatus('Pencarian Cutoff!', `Batas kedalaman ${data.depth_limit} tercapai. Coba naikkan batas limit.`);
+                } else {
+                    setStatus('Jalur tidak ditemukan!', 'Node tujuan tidak dapat dijangkau.');
+                }
+                showResults(data);
+            }
+
+            animationRunning = false;
+            btn.textContent = 'Cari Rute';
+            btn.classList.remove('running');
+        }
+
+        function showResults(data) {
+            const card = document.getElementById('results-card');
+            const div = document.getElementById('results');
+            card.style.display = 'block';
+
+            let pathHtml = '<div class="path-nodes">';
+            if (data.path) {
+                data.path.forEach((node, i) => {
+                    const delay = i * 0.12;
+                    pathHtml += `<span class="path-node" style="animation-delay:${delay}s">${node}</span>`;
+                    if (i < data.path.length - 1) pathHtml += `<span class="path-arrow" style="animation-delay:${delay + 0.06}s">&#x2192;</span>`;
+                });
+            } else {
+                pathHtml += '<span style="color:#ef4444; font-size:0.85rem;">Tidak ada jalur yang ditemukan</span>';
+            }
+            pathHtml += '</div>';
+
+            let visitedHtml = '<div class="visited-list">';
+            data.visited_order.forEach((node, i) => {
+                visitedHtml += `<span class="visited-node"><span class="step">${i+1}.</span>${node}</span>`;
+            });
+            visitedHtml += '</div>';
+
+            let extraHtml = '';
+            if (data.algorithm === 'DLS') {
+                extraHtml += `
+                <div class="result-item">
+                    <div class="label">Batas Kedalaman (Limit)</div>
+                    <div class="value">${data.depth_limit}</div>
+                </div>`;
+                if (data.cutoff && !data.path) {
+                    extraHtml += `
+                    <div class="result-item" style="border-left-color:#f59e0b;">
+                        <div class="label">Status Cutoff</div>
+                        <div class="value" style="color:#fbbf24;">Terputus di limit ${data.depth_limit}</div>
+                    </div>`;
+                }
+            }
+            if (data.algorithm === 'IDS' && data.found_at_depth !== undefined) {
+                extraHtml += `
+                <div class="result-item">
+                    <div class="label">Ditemukan pada Kedalaman</div>
+                    <div class="value">${data.found_at_depth}</div>
+                </div>`;
+            }
+            if (data.algorithm === 'UCS') {
+                extraHtml += `
+                <div class="result-item" style="border-left-color:#10b981;">
+                    <div class="label">Garansi Biaya Optimal</div>
+                    <div class="value" style="color:#6ee7b7;">Jalur dengan akumulasi bobot minimum</div>
+                </div>`;
+            }
+
+            div.innerHTML = `
+                <div class="result-item">
+                    <div class="label">Metode Algoritma</div>
+                    <div class="value">${data.algorithm}</div>
+                </div>
+                ${extraHtml}
+                <div class="result-item">
+                    <div class="label">Jalur Solusi</div>
+                    ${pathHtml}
+                </div>
+                <div class="result-item">
+                    <div class="label">Total Jarak Tempuh</div>
+                    <div class="value">${data.distance} unit</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Jumlah Node Diekspansi</div>
+                    <div class="value">${data.visited_order.length} gedung</div>
+                </div>
+                <div class="result-item">
+                    <div class="label">Urutan Eksplorasi</div>
+                    ${visitedHtml}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
